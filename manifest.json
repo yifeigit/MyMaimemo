@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "MyMaimemo · 墨墨背单词助手",
+  "version": "1.0.0",
+  "description": "查词、今日看板与单词故事一体化面板。绑定墨墨背单词 OpenAPI 与 LLM，查词自动收藏、AI释义、逐句对照单词故事。",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "https://open.maimemo.com/*",
+    "https://api.dictionaryapi.dev/*",
+    "https://dict.youdao.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "MyMaimemo · 查词 / 看板 / 单词故事"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["popup.html", "css/*", "js/*", "icons/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

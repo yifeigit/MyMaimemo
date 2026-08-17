@@ -1,0 +1,200 @@
+/* content.css — 注入到网页的悬浮按钮 + 可拖拽/可缩放/带动画的浮层面板 */
+
+/* ============ 悬浮按钮 ============ */
+#mymaimemo-fab {
+  position: fixed;
+  right: 14px;
+  top: 50%;
+  margin-top: -24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #db663c, #c2542f);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(47, 50, 49, 0.35);
+  cursor: grab;
+  z-index: 2147483647; /* 最高层级，盖住一切 */
+  /* 悬浮动画：hover 放大上浮 + 移动平滑 */
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background 0.28s ease,
+              box-shadow 0.28s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#mymaimemo-fab:hover {
+  background: linear-gradient(135deg, #c2542f, #db663c);
+  transform: translateY(-2px) scale(1.12);
+  box-shadow: 0 10px 26px rgba(47, 50, 49, 0.42);
+}
+#mymaimemo-fab:active {
+  cursor: grabbing;
+}
+#mymaimemo-fab.dragging {
+  transform: none !important;
+  cursor: grabbing;
+  box-shadow: 0 8px 22px rgba(47, 50, 49, 0.45);
+}
+#mymaimemo-fab svg {
+  width: 26px;
+  height: 26px;
+  display: block;
+  pointer-events: none;
+}
+/* 悬浮提示气泡 */
+#mymaimemo-fab::after {
+  content: "MyMaimemo";
+  position: absolute;
+  right: 58px;
+  top: 50%;
+  transform: translateY(-50%) scale(0.9);
+  white-space: nowrap;
+  background: #303231;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 9px;
+  border-radius: 7px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+#mymaimemo-fab:hover::after {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+/* ============ 浮层面板 ============ */
+#mymaimemo-panel {
+  position: fixed;
+  width: 520px;
+  height: 720px;
+  min-width: 360px;
+  min-height: 420px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 16px 50px rgba(80, 40, 20, 0.32);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  resize: both; /* 右下角可拖拽缩放 */
+  z-index: 2147483646;
+  /* 初始隐藏 + 动画起点：贴在悬浮图标处（右侧），从图标弹出/收回 */
+  opacity: 0;
+  transform: translateX(60px) scale(0.9);
+  transform-origin: right center; /* 运行时由 JS 精确指向悬浮图标中心 */
+  pointer-events: none;
+  transition: opacity 0.24s ease, transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+#mymaimemo-panel.open {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  pointer-events: auto;
+}
+/* 关闭中：向右侧图标方向收回（位移+缩放+淡出），动画结束后由 JS 移除 */
+#mymaimemo-panel.closing {
+  opacity: 0;
+  transform: translateX(60px) scale(0.9);
+  pointer-events: none;
+}
+
+/* 面板顶部拖动把手 + 关闭 */
+#mymaimemo-panel .mm-handle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 8px 14px;
+  background: linear-gradient(135deg, #2f3231, #3a3d3c);
+  color: #fff;
+  cursor: move;
+  flex: 0 0 auto;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#mymaimemo-panel .mm-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+#mymaimemo-panel .mm-close {
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 8px;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+#mymaimemo-panel .mm-close:hover {
+  opacity: 1;
+}
+
+/* 面板内容（iframe 承载现有 popup.html） */
+#mymaimemo-panel iframe {
+  flex: 1 1 auto;
+  width: 100%;
+  border: 0;
+  background: #fbf6f1;
+  display: block;
+}
+
+/* ============ 启用状态面板（工具栏图标点击弹出） ============ */
+#mymaimemo-status {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 260px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 10px 34px rgba(50, 70, 60, 0.28);
+  border: 1px solid #e6eef0;
+  padding: 12px 14px;
+  z-index: 2147483646;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
+  color: #303231;
+  animation: mmStatusIn .22s ease;
+}
+@keyframes mmStatusIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+#mymaimemo-status .mm-st-head {
+  font-size: 13px; font-weight: 700; color: #db663c;
+  margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #eef2f0;
+}
+#mymaimemo-status .mm-st-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 0;
+}
+#mymaimemo-status .mm-st-name { font-size: 13px; }
+#mymaimemo-status .mm-st-foot {
+  display: flex; gap: 8px; margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid #eef2f0;
+}
+#mymaimemo-status .mm-st-btn {
+  flex: 1; padding: 6px 0; border-radius: 8px;
+  border: none; background: #db663c; color: #fff; font-size: 12.5px; font-weight: 600;
+  cursor: pointer;
+}
+#mymaimemo-status .mm-st-btn:hover { background: #c2542f; }
+#mymaimemo-status .mm-st-btn.mm-st-ghost { background: #eef2f0; color: #5a6a63; }
+#mymaimemo-status .mm-st-btn.mm-st-ghost:hover { background: #e2eae6; }
+
+/* 开关 */
+.mm-switch { position: relative; display: inline-block; width: 40px; height: 22px; flex: 0 0 auto; }
+.mm-switch input { opacity: 0; width: 0; height: 0; }
+.mm-switch .mm-knob {
+  position: absolute; cursor: pointer; inset: 0;
+  background: #ccd6d2; border-radius: 22px; transition: background .2s;
+}
+.mm-switch .mm-knob:before {
+  content: ""; position: absolute; height: 16px; width: 16px;
+  left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform .2s;
+}
+.mm-switch input:checked + .mm-knob { background: #db663c; }
+.mm-switch input:checked + .mm-knob:before { transform: translateX(18px); }
+.mm-switch input:disabled + .mm-knob { opacity: .5; cursor: not-allowed; }

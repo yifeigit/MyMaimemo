@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MyMaimemo · 查词 / 看板 / 单词故事</title>
+  <link rel="stylesheet" href="css/popup.css" />
+</head>
+<body>
+  <!-- 顶部栏 -->
+  <header class="topbar" id="topbar">
+    <div class="logo">
+      <span class="logo-mark">M</span>
+      <span class="logo-title">MyMaimemo</span>
+    </div>
+    <button id="settingsBtn" class="icon-btn" title="设置" aria-label="设置">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </header>
+
+  <!-- 设置子页（独立视图，视觉区分 + 返回主页） -->
+  <section id="settingsView" class="settings-view hidden">
+    <div class="settings-head">
+      <button id="backBtn" class="icon-btn back-btn" title="返回主页" aria-label="返回主页">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+      </button>
+      <h2 class="settings-title">设置</h2>
+    </div>
+
+    <div class="settings-body">
+      <p class="settings-sub">设置与数据同步</p>
+      <div class="field">
+        <label for="maimemoToken">墨墨 Token</label>
+        <input type="password" id="maimemoToken" placeholder="获取：墨墨背单词-更多设置-实验功能-开放API" />
+        <p class="hint">在墨墨 App 开放 API 入口获取，长期有效。</p>
+      </div>
+
+      <div class="field">
+        <label for="usernameInput">显示名称（可选）</label>
+        <input type="text" id="usernameInput" placeholder="填写用户名/昵称；留空则显示 MyMaimemo" />
+        <p class="hint">页面顶部将显示该用户名；未填写时显示默认名 MyMaimemo。</p>
+      </div>
+
+      <div class="field">
+        <label for="llmProvider">LLM 服务商</label>
+        <select id="llmProvider">
+          <option value="deepseek">DeepSeek</option>
+          <option value="glm">智谱 GLM</option>
+          <option value="mimo">小米 memo (MiMo)</option>
+          <option value="opencodego">opencode go</option>
+          <option value="custom">自定义</option>
+        </select>
+        <p class="hint" id="llmHint">选择服务商后自动填入默认地址与模型，均可按需修改。</p>
+      </div>
+
+      <div class="field">
+        <label for="llmBaseUrl">Base URL</label>
+        <input type="text" id="llmBaseUrl" placeholder="https://api.example.com/v1" />
+      </div>
+      <div class="field">
+        <label for="llmModel">模型名</label>
+        <input type="text" id="llmModel" placeholder="如 deepseek-chat / glm-4-flash" />
+      </div>
+      <div class="field">
+        <label for="llmKey">LLM Key</label>
+        <input type="password" id="llmKey" placeholder="填写 API Key 解锁 AI 释义 / 单词故事" />
+      </div>
+
+      <div class="settings-actions">
+        <button id="saveSettings" class="btn btn-primary">保存设置</button>
+        <span id="settingsMsg" class="status-msg"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 主页视图（看板 / 查词 / 故事） -->
+  <div id="homeView">
+  <!-- 今日看板 -->
+  <section class="card board" id="boardSection">
+    <div class="card-head">
+      <h2>今日看板</h2>
+      <button id="refreshBtn" class="btn btn-ghost" title="刷新数据">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        刷新
+      </button>
+    </div>
+    <div class="board-loading" id="boardLoading">正在同步墨墨数据…</div>
+    <div class="board-error hidden" id="boardError"></div>
+
+    <div class="board-body hidden" id="boardBody">
+      <!-- 顶部聚合卡片 -->
+      <div class="kpis">
+        <div class="kpi main">
+          <div class="kpi-label">今日进度</div>
+          <div class="kpi-value"><span id="kFinished">0</span><span class="kpi-total">/<span id="kTotal">0</span></span></div>
+          <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+          <div class="progress-text" id="progressText">0%</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">计划总词数</div>
+          <div class="kpi-value" id="kPlanTotal">-</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">继续学习</div>
+          <div class="kpi-value" id="kRemain">-</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">今日新词</div>
+          <div class="kpi-value" id="kNewToday">-</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">7日到期</div>
+          <div class="kpi-value" id="kDue7">-</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 收藏词（今日看板下方单独显示） -->
+  <section class="card favs" id="favsSection">
+    <div class="card-head"><h2>收藏词</h2>
+      <label class="favs-picker">
+        <span class="favs-picker-label">云词库</span>
+        <select id="favNotepadSelect"></select>
+      </label>
+    </div>
+    <div class="favs-loading hidden" id="favsLoading">加载收藏词中…</div>
+    <div class="favs-error hidden" id="favsError"></div>
+    <div class="favs-body hidden" id="favsBody"></div>
+  </section>
+
+  <!-- 智能查词 -->
+  <section class="card">
+    <div class="card-head"><h2>智能查词</h2></div>
+    <div class="lookup-row">
+      <input type="text" id="wordInput" placeholder="输入单词或一句话，回车查词" />
+      <button id="lookupBtn" class="btn btn-primary">查词</button>
+    </div>
+    <div id="lookupLoading" class="inline-loading hidden">查询中…</div>
+    <div class="lookup-result hidden" id="lookupResult">
+      <div class="sentence-head hidden" id="sentenceHead"></div>
+      <div class="word-title">
+        <span class="word" id="resWord"></span>
+        <span class="phonetic" id="resPhonetic"></span>
+        <span class="tags">
+          <span class="tag" id="resTagStudied"></span>
+          <span class="tag" id="resTagFav"></span>
+        </span>
+      </div>
+      <div class="defs" id="resDefs"></div>
+      <button id="aiDefBtn" class="btn btn-ai">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l1.9 4.6L18.5 8.5l-4.6 1.9L12 15l-1.9-4.6L5.5 8.5l4.6-1.9z"/><path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9z"/></svg>
+        <span id="aiDefLabel">AI 释义</span>
+      </button>
+      <div id="aiDefArea" class="ai-area hidden">
+        <div class="ai-label">AI 释义</div>
+        <div id="aiDefContent"></div>
+      </div>
+    </div>
+    <div id="lookupError" class="error-msg hidden"></div>
+  </section>
+
+  <!-- 单词小文章 -->
+  <section class="card">
+    <div class="card-head">
+      <h2>单词小文章</h2>
+      <button id="storyCopyBtn" class="btn btn-ghost story-copy hidden" title="复制全文">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+        <span id="storyCopyLabel">复制</span>
+      </button>
+    </div>
+    <p class="card-desc">基于"今日已背"的词生成逐句中英对照短文；不足 3 个时回退为今日全部计划词。</p>
+    <button id="storyBtn" class="btn btn-primary btn-block">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      生成单词故事
+    </button>
+    <div id="storyLoading" class="inline-loading hidden">生成中，请稍候…</div>
+    <div id="storyArea" class="story hidden"></div>
+    <div id="storyMeta" class="story-meta hidden"></div>
+    <div id="storyError" class="error-msg hidden"></div>
+  </section>
+
+  <footer class="foot">MyMaimemo v1.0.0 · 查词 / 看板 / 单词故事</footer>
+  </div><!-- /homeView -->
+
+  <script src="js/api.js"></script>
+  <script src="js/dict.js"></script>
+  <script src="js/llm.js"></script>
+  <script src="js/popup.js"></script>
+</body>
+</html>

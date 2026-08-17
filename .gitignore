@@ -1,0 +1,19 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# WorkBuddy
+.workbuddy/
+
+# Node (dev only)
+node_modules/
+package-lock.json
+
+# Python (dev only)
+__pycache__/
+*.pyc
+.venv/
+venv/
