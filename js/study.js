@@ -502,14 +502,14 @@ function drawSvgDonut(containerId, items, opts) {
 
   let ly = 16;
   items.forEach((it) => {
-    if (!it.value) return;
+    // 图例始终显示全部分类（0 值项置灰显示，避免"缺少某项"的困惑）
     const g = svgEl("g", { transform: `translate(232 ${ly})` });
-    g.appendChild(svgEl("rect", { x: 0, y: 0, width: 12, height: 12, rx: 3, fill: it.color }));
-    const lb = svgEl("text", { x: 20, y: 10, "font-size": 12, fill: "#3a3d3c" });
+    g.appendChild(svgEl("rect", { x: 0, y: 0, width: 12, height: 12, rx: 3, fill: it.color, opacity: it.value ? 1 : 0.35 }));
+    const lb = svgEl("text", { x: 20, y: 10, "font-size": 12, fill: it.value ? "#3a3d3c" : "#9a9d9c" });
     lb.textContent = it.label;
     g.appendChild(lb);
-    const pct = svgEl("text", { x: 208, y: 10, "text-anchor": "end", "font-size": 12, "font-weight": 600, fill: "#3a3d3c" });
-    pct.textContent = `${it.value} · ${((it.value / total) * 100).toFixed(1)}%`;
+    const pct = svgEl("text", { x: 208, y: 10, "text-anchor": "end", "font-size": 12, "font-weight": 600, fill: it.value ? "#3a3d3c" : "#9a9d9c" });
+    pct.textContent = `${it.value} · ${total ? ((it.value / total) * 100).toFixed(1) : 0}%`;
     g.appendChild(pct);
     svg.appendChild(g);
     ly += 30;
