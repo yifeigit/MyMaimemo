@@ -59,6 +59,9 @@ const CACHE = {
 };
 function dictCacheKey(word) { return `${CACHE.DICT.key}_${word.toLowerCase()}`; }
 
+// 学习数据页的全量学习记录缓存 key（study.js 共用；token 变更时需失效）
+const STUDY_CACHE_KEY = "study_records";
+
 // ---------- DOM 辅助 ----------
 function show(id) { $(id).classList.remove("hidden"); }
 function hide(id) { $(id).classList.add("hidden"); }
@@ -142,6 +145,8 @@ async function onSaveSettings() {
   });
   applyUsername();
   populateFavPickers(); // 保存后若 Token 就绪，重新填充云词库下拉框
+  // Token 可能变更：使学习记录缓存失效，下次打开学习数据页会重新拉取
+  cacheSet(STUDY_CACHE_KEY, null, 0);
   const msg = $("settingsMsg");
   msg.textContent = "已保存";
   setTimeout(() => { msg.textContent = ""; }, 1800);

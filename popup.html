@@ -13,12 +13,17 @@
       <span class="logo-mark">M</span>
       <span class="logo-title">MyMaimemo</span>
     </div>
-    <button id="settingsBtn" class="icon-btn" title="设置" aria-label="设置">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="3.2"/>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-      </svg>
-    </button>
+    <div class="topbar-actions">
+      <button id="dataBtn" class="icon-btn" title="学习数据" aria-label="学习数据">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14.5l3.5-3.5 3 3L18 9"/></svg>
+      </button>
+      <button id="settingsBtn" class="icon-btn" title="设置" aria-label="设置">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3.2"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
   </header>
 
   <!-- 设置子页（独立视图，视觉区分 + 返回主页） -->
@@ -76,6 +81,74 @@
     </div>
   </section>
 
+  <!-- 学习数据子页（独立视图，可点击展开） -->
+  <section id="studyView" class="study-view hidden">
+    <div class="settings-head">
+      <button id="studyBackBtn" class="icon-btn back-btn" title="返回主页" aria-label="返回主页">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+      </button>
+      <h2 class="settings-title study-title">学习数据</h2>
+      <button id="studyRefreshBtn" class="btn btn-ghost study-refresh" title="重新拉取学习记录">刷新</button>
+    </div>
+    <p class="study-sub">基于墨墨学习记录的全量可视化分析（需 App 开启「自动同步」，首次加载约需数秒）。</p>
+
+    <div class="study-tabs">
+      <button class="study-tab active" data-tab="overview">概览</button>
+      <button class="study-tab" data-tab="sticky">易忘词</button>
+      <button class="study-tab" data-tab="familiar">熟词</button>
+      <button class="study-tab" data-tab="all">全量记录</button>
+    </div>
+
+    <div id="studyLoading" class="board-loading">正在拉取学习记录…</div>
+    <div id="studyError" class="board-error hidden"></div>
+
+    <div id="studyTab-overview" class="study-pane">
+      <div class="study-kpis" id="studyKpis"></div>
+      <div class="card chart-card">
+        <div class="chart-title">未来 30 天复习到期分布（按北京时区）</div>
+        <div id="chartDue" class="chart-svg"></div>
+      </div>
+      <div class="card chart-card">
+        <div class="chart-title">学习状态分布（最近一次反应）</div>
+        <div id="chartStatus" class="chart-svg"></div>
+      </div>
+      <div class="card chart-card">
+        <div class="chart-title">近 12 个月学习量趋势（按首次学习月份）</div>
+        <div id="chartTrend" class="chart-svg"></div>
+      </div>
+    </div>
+
+    <div id="studyTab-sticky" class="study-pane hidden">
+      <p class="study-sub" id="stickyDesc"></p>
+      <div id="stickyList" class="word-list"></div>
+    </div>
+
+    <div id="studyTab-familiar" class="study-pane hidden">
+      <p class="study-sub" id="familiarDesc"></p>
+      <div id="familiarList" class="word-list"></div>
+    </div>
+
+    <div id="studyTab-all" class="study-pane hidden">
+      <input type="text" id="studySearch" placeholder="搜索单词 / 状态 / 标签…（点表头排序）" />
+      <div class="table-wrap">
+        <table class="study-table" id="studyTable">
+          <thead>
+            <tr>
+              <th data-sort="voc_spelling">单词</th>
+              <th data-sort="study_count">学习次数</th>
+              <th data-sort="last_response">最近反应</th>
+              <th data-sort="next_study_date">下次复习</th>
+              <th data-sort="last_study_date">最近学习</th>
+              <th>标签</th>
+            </tr>
+          </thead>
+          <tbody id="studyTbody"></tbody>
+        </table>
+      </div>
+      <div class="pager" id="studyPager"></div>
+    </div>
+  </section>
+
   <!-- 主页视图（看板 / 查词 / 故事） -->
   <div id="homeView">
   <!-- 今日看板 -->
@@ -94,7 +167,7 @@
       <!-- 顶部聚合卡片 -->
       <div class="kpis">
         <div class="kpi main">
-          <div class="kpi-label">今日进度</div>
+          <div class="kpi-label">复习进度</div>
           <div class="kpi-value"><span id="kFinished">0</span><span class="kpi-total">/<span id="kTotal">0</span></span></div>
           <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
           <div class="progress-text" id="progressText">0%</div>
@@ -190,5 +263,6 @@
   <script src="js/dict.js"></script>
   <script src="js/llm.js"></script>
   <script src="js/popup.js"></script>
+  <script src="js/study.js"></script>
 </body>
 </html>

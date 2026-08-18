@@ -72,6 +72,7 @@ body { padding: 14px 18px 6px; }
   transition: all 0.15s;
 }
 .icon-btn:hover { color: var(--primary); background: var(--primary-soft); }
+.topbar-actions { display: flex; align-items: center; gap: 2px; }
 
 /* 卡片 */
 .card {
@@ -325,3 +326,101 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
 /* 滚动条 */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: #e2d6ca; border-radius: 8px; }
+
+/* ================= 学习数据页 ================= */
+.study-view {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--sage);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 0 16px 18px;
+  margin: 0 0 14px;
+}
+.study-title { color: var(--sage); }
+.study-refresh { margin-left: auto; }
+.study-sub { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+
+.study-tabs {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px; margin-bottom: 14px;
+}
+.study-tab {
+  border: 1px solid var(--border); background: #fff; color: var(--muted);
+  font-size: 12.5px; padding: 5px 14px; border-radius: 99px;
+  cursor: pointer; font-weight: 600; transition: all 0.15s;
+}
+.study-tab:hover { color: var(--sage); border-color: var(--sage); }
+.study-tab.active { background: var(--sage); border-color: var(--sage); color: #fff; }
+
+/* 概览 KPI */
+.study-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+.skpi { background: var(--sage-soft); border-radius: 11px; padding: 10px 12px; }
+.skpi-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.skpi-value { font-size: 20px; font-weight: 700; line-height: 1.2; }
+.skpi-warn { background: var(--amber-soft); }
+.skpi-warn .skpi-value { color: #b27a2c; }
+.skpi-ok { background: var(--sage-soft); }
+.skpi-ok .skpi-value { color: #4c7a63; }
+.skpi-hot { background: var(--red-soft); }
+.skpi-hot .skpi-value { color: var(--red); }
+
+/* 图表卡片 */
+.chart-card { margin-bottom: 14px; padding: 14px; }
+.chart-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+.chart-svg svg { display: block; }
+.svg-chart .bar { cursor: pointer; transition: opacity 0.12s; }
+.svg-chart .bar:hover { opacity: 0.7; }
+.svg-chart .seg { cursor: pointer; transition: stroke-width 0.12s; }
+.svg-chart .seg:hover { stroke-width: 34; }
+#chartTip {
+  position: fixed; z-index: 999;
+  background: var(--dark); color: #fff;
+  font-size: 11.5px; padding: 6px 10px; border-radius: 8px;
+  pointer-events: none; display: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.28);
+  max-width: 240px; white-space: nowrap;
+}
+
+/* 词清单（易忘词 / 熟词） */
+.word-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.wchip {
+  border: 1px solid var(--border); border-radius: 9px;
+  padding: 5px 10px; background: #fff;
+  display: inline-flex; align-items: baseline; gap: 8px;
+}
+.wchip-word { font-weight: 700; font-size: 12.5px; color: var(--text); }
+.wchip-meta { font-size: 10.5px; color: var(--muted); }
+.study-more { width: 100%; text-align: center; color: var(--muted); font-size: 11.5px; padding: 8px 0; }
+.study-empty { color: var(--muted); font-size: 12px; text-align: center; padding: 16px 0; }
+
+/* 全量记录表 */
+.table-wrap {
+  max-height: 380px; overflow: auto;
+  border: 1px solid var(--border); border-radius: 10px; margin-top: 10px;
+}
+.study-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.study-table th {
+  position: sticky; top: 0; background: var(--dark); color: #fff;
+  font-size: 11.5px; text-align: left; padding: 8px 10px;
+  cursor: pointer; white-space: nowrap; user-select: none;
+}
+.study-table th:hover { background: var(--dark-2); }
+.study-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.study-table tr:nth-child(even) { background: #fafbfa; }
+.col-word { font-weight: 700; color: var(--text); }
+.col-num { text-align: center; }
+.col-date { color: var(--muted); }
+.col-date.overdue { color: var(--red); font-weight: 600; }
+.resp { font-size: 11px; padding: 1px 9px; border-radius: 99px; font-weight: 600; }
+.resp-ok { background: var(--sage-soft); color: #4c7a63; }
+.resp-ok2 { background: var(--primary-soft); color: var(--primary); }
+.resp-warn { background: var(--amber-soft); color: #b27a2c; }
+.resp-bad { background: var(--red-soft); color: var(--red); }
+.resp-none { background: var(--border); color: var(--muted); }
+.tchip { font-size: 10.5px; padding: 1px 8px; border-radius: 99px; background: var(--border); color: var(--muted); font-weight: 600; }
+.tchip-sticky { background: var(--red-soft); color: var(--red); }
+.tchip-ok { background: var(--sage-soft); color: #4c7a63; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 10px; }
+.pager-info { font-size: 12px; color: var(--muted); }

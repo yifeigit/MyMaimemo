@@ -223,3 +223,93 @@ async function maimemoAddWordToFavorite(notepad, word, token) {
     status: notepad.status || "PUBLISHED",
   }, token);
 }
+
+// ---------- 学习记录查询（学习数据页） ----------
+async function maimemoQueryStudyRecords(token, body = {}) {
+  const data = await maimemoFetch("/study/query_study_records", {
+    method: "POST",
+    body,
+    token,
+  });
+  return data || { records: [], count: 0 };
+}
+
+// ---------- 分页拉取全部学习记录 ----------
+// 接口特性（实测）：仅支持 next_study_date 过滤（start/end，均含边界），
+// 默认按加入时间排序、无 offset、单页上限 1000。
+// 策略：累计计数 + 二分定位窗口边界，保证每个窗口 (prevEnd, end] 内记录数 ≤ 1000，
+// 从而一次拉取即可完整取走该窗口全部记录，无遗漏、无重复。
+async function maimemoFetchAllStudyRecords(token, onProgress) {
+  const DAY = 86400000;
+  const addDays = (s, n) => {
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+  };
+  const dayDiff = (a, b) => {
+    const pa = a.split("-").map(Number), pb = b.split("-").map(Number);
+    return Math.round((Date.UTC(pa[0], pa[1] - 1, pa[2]) - Date.UTC(pb[0], pb[1] - 1, pb[2])) / DAY);
+  };
+  const fmtEnd = (d) => `${d}T23:59:59+08:00`;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  const first = await maimemoQueryStudyRecords(token, { as_count: true });
+  const total = first.count || 0;
+  const all = [];
+  const seen = new Set();
+  const add = (recs) => {
+    for (const r of recs) {
+      if (r.voc_id && !seen.has(r.voc_id)) { seen.add(r.voc_id); all.push(r); }
+    }
+  };
+  if (!total) return all;
+
+  // 今天（北京时区）
+  const u = new Date(new Date().getTime() + 8 * 3600 * 1000);
+  const today = u.toISOString().slice(0, 10);
+  const HI = "2126-12-31"; // 哨兵日期簇之外足够远的上限
+
+  const countEnd = async (dStr) => {
+    await sleep(300);
+    const d = await maimemoQueryStudyRecords(token, {
+      next_study_date: { end: fmtEnd(dStr) }, as_count: true,
+    });
+    return d.count || 0;
+  };
+
+  let prevEnd = null, prevC = 0, end = today;
+  for (let guard = 0; guard < 60; guard++) {
+    let c = await countEnd(end);
+    let win = c - prevC;
+    if (win > 1000) {
+      // 二分收缩：找最大的 end，使 (prevEnd, end] 内记录数 ≤ 1000
+      let lo = prevEnd || "2000-01-01", hi = end;
+      while (true) {
+        const span = dayDiff(hi, lo);
+        if (span <= 1) break;
+        const mid = addDays(lo, Math.floor(span / 2));
+        const cm = await countEnd(mid);
+        if (cm - prevC > 1000) hi = mid; else lo = mid;
+      }
+      end = lo;
+      c = await countEnd(end);
+      win = c - prevC;
+    }
+    // 拉取 (prevEnd, end]
+    const body = { limit: 1000, next_study_date: { end: fmtEnd(end) } };
+    // start 取 prevEnd 当天 23:59:59+08:00（含边界，靠 voc_id 去重兜底），避免窗口间漏记录
+    if (prevEnd) body.next_study_date.start = fmtEnd(prevEnd);
+    await sleep(300);
+    const d = await maimemoQueryStudyRecords(token, body);
+    add(d.records || []);
+    if (onProgress) onProgress(all.length, total);
+    if (c >= total) break;
+    if (prevEnd && end === prevEnd) break; // 窗口无法前进，防死循环
+    const span = prevEnd ? dayDiff(end, prevEnd) : 0;
+    const dens = win / Math.max(span, 1);
+    const step = win <= 0 ? 1825 : Math.max(1, Math.round(700 / Math.max(dens, 1e-9)));
+    prevEnd = end; prevC = c;
+    end = addDays(end, step);
+    if (end > HI) end = HI;
+  }
+  return all;
+}
