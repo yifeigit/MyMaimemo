@@ -63,9 +63,11 @@ function dictCacheKey(word) { return `${CACHE.DICT.key}_${word.toLowerCase()}`; 
 const STUDY_CACHE_KEY = "study_records";
 
 // ---------- DOM 辅助 ----------
-function show(id) { $(id).classList.remove("hidden"); }
-function hide(id) { $(id).classList.add("hidden"); }
-function setText(id, t) { $(id).textContent = t; }
+// 兼容 id 字符串或元素对象；元素不存在时静默跳过，避免 null.classList 报错
+function resolveEl(id) { return typeof id === "string" ? $(id) : id; }
+function show(id) { const el = resolveEl(id); if (el) el.classList.remove("hidden"); }
+function hide(id) { const el = resolveEl(id); if (el) el.classList.add("hidden"); }
+function setText(id, t) { const el = resolveEl(id); if (el) el.textContent = t; }
 
 // ---------- 智能渲染：文本加粗 ----------
 // text 应为已转义(escHtml)后的内容；words 为目标加粗词汇表

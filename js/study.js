@@ -37,14 +37,14 @@ function closeStudyView() {
 async function loadStudyView(force) {
   const loadEl = $("studyLoading");
   const errEl = $("studyError");
-  hide(errEl);
+  hide("studyError");
   try {
     const recs = await ensureStudyData(force);
-    hide(loadEl);
+    hide("studyLoading");
     renderStudyAll(recs);
   } catch (e) {
-    hide(loadEl);
-    show(errEl);
+    hide("studyLoading");
+    show("studyError");
     errEl.textContent = "加载学习数据失败：" + e.message + "（可点右上角「刷新」重试）";
   }
 }
