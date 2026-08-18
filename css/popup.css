@@ -188,23 +188,25 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
 }
 .kpi.main {
   grid-column: 1 / -1;
-  background: linear-gradient(135deg, #db663c, #e08a63);
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(219, 102, 60, 0.25);
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
-.kpi.main .kpi-label { color: rgba(255,255,255,0.92); }
+.kpi.main .kpi-label { color: var(--muted); }
+.kpi.main .progress-text { color: var(--muted); opacity: 1; }
 .kpi-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
 .kpi-value { font-size: 20px; font-weight: 700; line-height: 1.2; }
 .kpi-value .kpi-total { font-size: 14px; font-weight: 500; opacity: 0.85; margin-left: 2px; }
 
 .progress {
   margin-top: 8px; height: 8px;
-  background: rgba(255,255,255,0.4);
+  background: rgba(219, 102, 60, 0.16);
   border-radius: 99px; overflow: hidden;
 }
 .progress-bar {
   height: 100%; width: 0%;
-  background: #fff;
+  background: linear-gradient(135deg, #db663c, #e08a63);
   border-radius: 99px;
   transition: width 0.4s ease;
 }
