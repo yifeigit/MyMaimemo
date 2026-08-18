@@ -164,8 +164,8 @@ function drawDueChart(recs) {
 function drawStatusChart(recs) {
   const defs = [
     { key: "WELL_FAMILIAR", label: "熟知", color: "#7da994" },
-    { key: "FAMILIAR", label: "认识", color: "#db663c" },
-    { key: "VAGUE", label: "模糊", color: "#5b8db8" },
+    { key: "FAMILIAR", label: "认识", color: "#5b8db8" },
+    { key: "VAGUE", label: "模糊", color: "#db663c" },
     { key: "FORGET", label: "忘记", color: "#c1503c" },
   ];
   const count = (k) => recs.filter((r) => r.last_response === k).length;
