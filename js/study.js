@@ -75,10 +75,11 @@ async function ensureStudyData(force) {
       loadEl.textContent = total
         ? `正在同步学习数据… ${n} / ${total} 词（${pct}%，约剩 ${left} 秒），数据实时更新中`
         : `正在同步学习数据… 已加载 ${n} 词`;
-      // 2) 边拉边显示：每拉完一个窗口就用当前已有数据渲染一次
+      // 2) 边拉边显示：每拉完一个窗口就用当前已有数据渲染一次（渲染异常不中断拉取）
       if (partial.length) {
         studyRecords = partial;
-        renderStudyAll(partial);
+        try { renderStudyAll(partial); }
+        catch (e) { console.warn("学习数据实时渲染失败（拉取继续）", e); }
       }
     });
     hide("studyLoading");

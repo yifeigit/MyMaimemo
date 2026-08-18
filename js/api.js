@@ -336,8 +336,9 @@ async function maimemoFetchAllStudyRecords(token, onProgress) {
   };
   const workers = [0, 1].map(async () => {
     while (true) {
-      const w = winQueue[idx++];
+      const w = winQueue[idx];          // 只读，取到有效窗口才递增（空转轮询不得跳窗）
       if (w) {
+        idx++;
         await throttle();
         try {
           const d = await maimemoQueryStudyRecords(token, bodyFor(w));
