@@ -194,6 +194,54 @@ function drawTrendChart(recs) {
   drawSvgBars("chartTrend", months.map((m) => m.label), counts, { color: "#7da994", labelEvery: 2, height: 200 });
 }
 
+// ---------- 单词中文释义（懒加载 + 会话缓存 + 磁盘缓存 + 并发控制） ----------
+// 学习记录接口不带释义，这里用有道词典(DictLookup)异步补齐，只查可见词条
+const studyDefCache = new Map();     // 会话内缓存（含空结果，避免重复查）
+const studyDefPending = new Map();   // 进行中的查询去重：同一词只查一次，多目标共享结果
+let defBusy = 0;
+const defQueue = [];
+const DEF_MAX_CONC = 6;              // 有道并发上限，避免请求风暴
+function pumpDefQueue() {
+  while (defQueue.length && defBusy < DEF_MAX_CONC) {
+    const job = defQueue.shift();
+    defBusy++;
+    (async () => {
+      let zh = "";
+      try {
+        const r = await DictLookup(job.w);
+        zh = (r.items || [])
+          .map((it) => (it.pos ? `${it.pos}. ${it.zh}` : it.zh))
+          .join("；")
+          .slice(0, 60);
+      } catch (e) { /* 词典未收录/网络失败 -> 留空 */ }
+      studyDefCache.set(job.w, zh);
+      if (zh) cacheSet("studydict_" + job.w, zh, 24 * 3600 * 1000);
+      job.resolve(zh);
+    })().finally(() => { defBusy--; pumpDefQueue(); });
+  }
+}
+async function fetchZhBrief(word) {
+  const w = String(word || "").toLowerCase().trim();
+  if (!w) return "";
+  if (studyDefCache.has(w)) return studyDefCache.get(w);
+  if (studyDefPending.has(w)) return studyDefPending.get(w); // 复用进行中的查询
+  const cached = await cacheGet("studydict_" + w);
+  if (cached) { studyDefCache.set(w, cached); return cached; }
+  if (studyDefPending.has(w)) return studyDefPending.get(w); // await 期间可能有同词入队
+  const p = new Promise((resolve) => {
+    defQueue.push({ w, resolve });
+    pumpDefQueue();
+  });
+  studyDefPending.set(w, p);
+  p.finally(() => studyDefPending.delete(w));
+  return p;
+}
+// 把释义异步填入目标元素（无释义则留空）
+function fillDef(el, word) {
+  if (!el || !word) return;
+  fetchZhBrief(word).then((zh) => { el.textContent = zh; });
+}
+
 // ---------- 易忘词清单 ----------
 // 范围：tags=STICKING（墨墨标记的易忘词）；按难度排序展示前 200 个
 // 难度分 = 学习次数 × 10 + 最近反应权重（忘记>模糊>认识>熟知），学得多还记不住 = 更难
@@ -221,8 +269,10 @@ function renderStickyList(recs) {
     chip.className = "wchip";
     chip.innerHTML =
       `<span class="wchip-word">${escHtml(r.voc_spelling || "—")}</span>` +
-      `<span class="wchip-meta">学 ${r.study_count || 0} 次 · ${RESP_CN[r.last_response] || "未测"}</span>`;
+      `<span class="wchip-meta">学 ${r.study_count || 0} 次 · ${RESP_CN[r.last_response] || "未测"}</span>` +
+      `<span class="wchip-def"></span>`;
     box.appendChild(chip);
+    fillDef(chip.querySelector(".wchip-def"), r.voc_spelling); // 异步查中文释义
   });
   if (list.length > 200) {
     const more = document.createElement("div");
@@ -270,13 +320,14 @@ function renderTable(recs) {
     for (const r of pageRows) {
       const tr = document.createElement("tr");
       tr.innerHTML =
-        `<td class="col-word">${escHtml(r.voc_spelling || "—")}</td>` +
+        `<td class="col-word"><div class="cw-word">${escHtml(r.voc_spelling || "—")}</div><div class="col-def"></div></td>` +
         `<td class="col-num">${r.study_count || 0}</td>` +
         `<td>${respBadge(r.last_response)}</td>` +
         `<td class="col-date${isOverdue(r.next_study_date) ? " overdue" : ""}">${fmtIso(r.next_study_date)}</td>` +
         `<td class="col-date">${fmtIso(r.last_study_date)}</td>` +
         `<td>${tagChips(r.tags)}</td>`;
       tbody.appendChild(tr);
+      fillDef(tr.querySelector(".col-def"), r.voc_spelling); // 异步查中文释义
     }
   }
 

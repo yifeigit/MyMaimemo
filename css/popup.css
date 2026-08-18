@@ -385,15 +385,17 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
   max-width: 240px; white-space: nowrap;
 }
 
-/* 词清单（易忘词 / 熟词） */
+/* 词清单（易忘词） */
 .word-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .wchip {
   border: 1px solid var(--border); border-radius: 9px;
-  padding: 5px 10px; background: #fff;
-  display: inline-flex; align-items: baseline; gap: 8px;
+  padding: 6px 10px; background: #fff;
+  display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  max-width: 230px;
 }
 .wchip-word { font-weight: 700; font-size: 12.5px; color: var(--text); }
 .wchip-meta { font-size: 10.5px; color: var(--muted); }
+.wchip-def { font-size: 11px; color: #6b7d74; line-height: 1.45; }
 .study-more { width: 100%; text-align: center; color: var(--muted); font-size: 11.5px; padding: 8px 0; }
 .study-empty { color: var(--muted); font-size: 12px; text-align: center; padding: 16px 0; }
 
@@ -413,6 +415,8 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
 .study-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .study-table tr:nth-child(even) { background: #fafbfa; }
 .col-word { font-weight: 700; color: var(--text); }
+.col-word .cw-word { font-weight: 700; }
+.col-def { font-size: 11px; color: var(--muted); font-weight: 400; margin-top: 2px; max-width: 240px; white-space: normal; line-height: 1.45; }
 .col-num { text-align: center; }
 .col-date { color: var(--muted); }
 .col-date.overdue { color: var(--red); font-weight: 600; }
