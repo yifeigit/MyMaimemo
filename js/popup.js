@@ -195,7 +195,33 @@ async function refreshDashboard(force = false) {
     hide("boardLoading"); hide("boardError");
     show("boardBody");
     renderBoard(data);
-    renderFavs(data.favNotepad);
+
+    // 强制刷新（点「刷新」按钮）时，额外对收藏词做“已背清理”：
+    // 查询收藏词本里每个词的学习记录，已背过的从云词库移除。
+    let favNotepad = data.favNotepad;
+    if (force) {
+      try {
+        setText("favsLoading", "正在检查收藏词是否已背过…");
+        show("favsLoading"); hide("favsBody"); hide("favsError");
+        const before = (favNotepad.list || [])
+          .filter((it) => it.type === "WORD" || it.type === "DRAFT_WORD").length;
+        favNotepad = await syncCleanFavorites(favNotepad);
+        const after = (favNotepad.list || [])
+          .filter((it) => it.type === "WORD" || it.type === "DRAFT_WORD").length;
+        cacheSet(CACHE.BOARD.key, { ...data, favNotepad }, CACHE.BOARD.ttl);
+        renderFavs(favNotepad);
+        if (after < before) {
+          setText("favsLoading", `已移除 ${before - after} 个已背单词`);
+          show("favsLoading");
+          setTimeout(() => hide("favsLoading"), 1800);
+        }
+      } catch (e) {
+        console.warn("收藏词清理失败", e);
+        renderFavs(favNotepad);
+      }
+    } else {
+      renderFavs(data.favNotepad);
+    }
   } catch (e) {
     hide("boardLoading"); hide("boardBody");
     show("boardError");
@@ -362,14 +388,15 @@ async function syncCleanFavorites(notepad) {
 
   const newContent = (header ? header + "\n" : "") + kept.join("\n");
   if (newContent.trim() !== (notepad.content || "").trim()) {
-    const updated = await maimemoUpdateNotepad(notepad.id, {
+    await maimemoUpdateNotepad(notepad.id, {
       title: notepad.title,
       brief: notepad.brief || "",
       content: newContent.trim(),
       tags: (Array.isArray(notepad.tags) ? notepad.tags : ["我的收藏"]),
       status: notepad.status || "PUBLISHED",
     }, settings.token);
-    return updated;
+    // 重新读取，确保 list/content 与云端一致（渲染依赖 .list）
+    return await maimemoGetNotepad(notepad.id, settings.token);
   }
   return notepad;
 }
