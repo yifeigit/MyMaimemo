@@ -197,21 +197,26 @@ async function refreshDashboard(force = false) {
     renderBoard(data);
 
     // 强制刷新（点「刷新」按钮）时，额外对收藏词做“已背清理”：
-    // 查询收藏词本里每个词的学习记录，已背过的从云词库移除。
+    // 仅针对“下拉当前选中的云词库”执行，账号下其它词库一律不动。
     let favNotepad = data.favNotepad;
     if (force) {
       try {
         setText("favsLoading", "正在检查收藏词是否已背过…");
         show("favsLoading"); hide("favsBody"); hide("favsError");
-        const before = (favNotepad.list || [])
+        // 以下拉选中的 id 为唯一目标，精确取出该词本后再清理
+        const targetId = settings.favNotepadId || (favNotepad && favNotepad.id);
+        const notepadForClean = targetId
+          ? await maimemoGetNotepad(targetId, settings.token)
+          : favNotepad;
+        const before = (notepadForClean.list || [])
           .filter((it) => it.type === "WORD" || it.type === "DRAFT_WORD").length;
-        favNotepad = await syncCleanFavorites(favNotepad);
+        favNotepad = await syncCleanFavorites(notepadForClean || favNotepad);
         const after = (favNotepad.list || [])
           .filter((it) => it.type === "WORD" || it.type === "DRAFT_WORD").length;
         cacheSet(CACHE.BOARD.key, { ...data, favNotepad }, CACHE.BOARD.ttl);
         renderFavs(favNotepad);
         if (after < before) {
-          setText("favsLoading", `已移除 ${before - after} 个已背单词`);
+          setText("favsLoading", `已移除 ${before - after} 个已背单词（仅当前云词库）`);
           show("favsLoading");
           setTimeout(() => hide("favsLoading"), 1800);
         }
