@@ -2,7 +2,7 @@
 // 依赖 popup.js 提供的全局：$、hide、show、setText、escHtml、cacheGet、cacheSet、settings、STUDY_CACHE_KEY
 "use strict";
 
-const STUDY_CACHE_TTL = 10 * 60 * 1000;  // 学习记录缓存 10 分钟
+const STUDY_CACHE_TTL = 6 * 3600 * 1000;  // 学习记录缓存 6 小时（全量拉取约 30 秒，频繁过期不值；页内有「刷新」可手动更新）
 
 let studyRecords = null;   // 全量学习记录（分页拉取后缓存）
 let studyLoading = false;  // 防止并发重复拉取
@@ -20,7 +20,13 @@ const studyState = {
 function openStudyView() {
   hide("topbar"); hide("homeView");
   show("studyView");
-  loadStudyView(false);
+  // 拉取是长任务（约 30 秒），fire-and-forget 但必须兜底异常，避免界面卡在加载态
+  loadStudyView(false).catch((e) => {
+    console.warn("学习数据加载异常", e);
+    hide("studyLoading");
+    show("studyError");
+    $("studyError").textContent = "加载学习数据失败：" + (e && e.message ? e.message : "未知错误") + "（可点右上角「刷新」重试）";
+  });
 }
 function closeStudyView() {
   hide("studyView");
@@ -39,13 +45,17 @@ async function loadStudyView(force) {
   } catch (e) {
     hide(loadEl);
     show(errEl);
-    errEl.textContent = "加载学习数据失败：" + e.message;
+    errEl.textContent = "加载学习数据失败：" + e.message + "（可点右上角「刷新」重试）";
   }
 }
 
 async function ensureStudyData(force) {
   if (studyRecords && !force) return studyRecords;
-  if (studyLoading) { while (studyLoading) await new Promise((r) => setTimeout(r, 150)); return studyRecords || []; }
+  // 并发去重：等正在进行的拉取结束；若第一次失败（studyRecords 仍为空），则重新拉取而非返回空
+  if (studyLoading) {
+    while (studyLoading) await new Promise((r) => setTimeout(r, 150));
+    if (studyRecords) return studyRecords;
+  }
   if (!settings.token) throw new Error("请先在设置中填入墨墨 Token");
   if (!force) {
     const cached = await cacheGet(STUDY_CACHE_KEY);
@@ -53,11 +63,16 @@ async function ensureStudyData(force) {
   }
   studyLoading = true;
   const loadEl = $("studyLoading");
+  const started = Date.now();
   try {
     const recs = await maimemoFetchAllStudyRecords(settings.token, (n, total) => {
-      loadEl.textContent = total
-        ? `正在拉取学习记录… 已加载 ${n} / ${total} 词`
-        : `正在拉取学习记录… 已加载 ${n} 词`;
+      if (!total) { loadEl.textContent = `正在拉取学习记录… 已加载 ${n} 词`; return; }
+      // 按进度估算剩余时间，让用户知道不是卡死
+      const pct = Math.min(99, Math.round((n / total) * 100));
+      const el = Date.now() - started;
+      const per = el / Math.max(n, 1);
+      const left = Math.max(0, Math.round((per * (total - n)) / 1000));
+      loadEl.textContent = `正在拉取学习记录… ${n} / ${total} 词（${pct}%，约剩 ${left} 秒）`;
     });
     if (recs.length) {
       studyRecords = recs;

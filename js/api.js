@@ -3,16 +3,30 @@
 const MAIMEMO_BASE = "https://open.maimemo.com/open/api/v1";
 
 // ---------- 通用请求 ----------
-async function maimemoFetch(path, { method = "GET", body = null, token } = {}) {
+// timeoutMs：请求超时（默认 15s），防止网络挂起导致界面永久卡在加载中
+async function maimemoFetch(path, { method = "GET", body = null, token, timeoutMs = 15000 } = {}) {
   const headers = {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
   };
-  const res = await fetch(`${MAIMEMO_BASE}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let res;
+  try {
+    res = await fetch(`${MAIMEMO_BASE}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    if (e && e.name === "AbortError") {
+      throw new Error("墨墨接口超时（15 秒无响应），请检查网络后重试");
+    }
+    throw new Error("网络请求失败：" + (e && e.message ? e.message : "未知错误"));
+  }
+  clearTimeout(timer);
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     try {
@@ -225,20 +239,35 @@ async function maimemoAddWordToFavorite(notepad, word, token) {
 }
 
 // ---------- 学习记录查询（学习数据页） ----------
+// 带 429/5xx 退避重试（查询类接口幂等，重试安全）：
+// 墨墨限流 20次/10s、40次/60s，全量拉取约 40+ 次请求，高峰期易触发 429
 async function maimemoQueryStudyRecords(token, body = {}) {
-  const data = await maimemoFetch("/study/query_study_records", {
-    method: "POST",
-    body,
-    token,
-  });
-  return data || { records: [], count: 0 };
+  let lastErr = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const data = await maimemoFetch("/study/query_study_records", {
+        method: "POST",
+        body,
+        token,
+      });
+      return data || { records: [], count: 0 };
+    } catch (e) {
+      lastErr = e;
+      const m = e.message || "";
+      const isRateLimit = /429|Too Many|限流|太快|频繁/.test(m);
+      if (!isRateLimit || attempt >= 3) break;
+      // 退避：1s / 2s / 4s，等限流窗口恢复
+      await new Promise((r) => setTimeout(r, [1000, 2000, 4000][attempt]));
+    }
+  }
+  throw lastErr;
 }
 
 // ---------- 分页拉取全部学习记录 ----------
 // 接口特性（实测）：仅支持 next_study_date 过滤（start/end，均含边界），
 // 默认按加入时间排序、无 offset、单页上限 1000。
-// 策略：累计计数 + 二分定位窗口边界，保证每个窗口 (prevEnd, end] 内记录数 ≤ 1000，
-// 从而一次拉取即可完整取走该窗口全部记录，无遗漏、无重复。
+// 策略：累计计数 + 二分定位窗口边界（顺序，保证每个窗口记录数 ≤ 950 且闭集），
+// 然后并行拉取各窗口（互不依赖，限流内每批 3 个），无遗漏、无重复。
 async function maimemoFetchAllStudyRecords(token, onProgress) {
   const DAY = 86400000;
   const addDays = (s, n) => {
@@ -251,6 +280,22 @@ async function maimemoFetchAllStudyRecords(token, onProgress) {
   };
   const fmtEnd = (d) => `${d}T23:59:59+08:00`;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // 全局节流（双保险）：
+  // 1) 20次/10s：任意两个请求发出间隔 ≥ 600ms（≈1.67 req/s）
+  // 2) 40次/60s：60s 滑动窗口内最多 36 次，超出则等待窗口滑出（保证永不 429）
+  let lastReq = 0;
+  const reqLog = [];
+  const throttle = async () => {
+    const now = Date.now();
+    while (reqLog.length && reqLog[0] <= now - 60000) reqLog.shift();
+    if (reqLog.length >= 36) {
+      await sleep(60000 - (now - reqLog[0]) + 200);
+    }
+    const wait = 600 - (Date.now() - lastReq);
+    if (wait > 0) await sleep(wait);
+    lastReq = Date.now();
+    reqLog.push(Date.now());
+  };
 
   const first = await maimemoQueryStudyRecords(token, { as_count: true });
   const total = first.count || 0;
@@ -267,49 +312,74 @@ async function maimemoFetchAllStudyRecords(token, onProgress) {
   const u = new Date(new Date().getTime() + 8 * 3600 * 1000);
   const today = u.toISOString().slice(0, 10);
   const HI = "2126-12-31"; // 哨兵日期簇之外足够远的上限
+  const WINDOW_TARGET = 990; // 每窗口目标条数（接近 1000 上限，把总请求数压到 40/60s 限流内）
 
   const countEnd = async (dStr) => {
-    await sleep(300);
+    await throttle();
     const d = await maimemoQueryStudyRecords(token, {
       next_study_date: { end: fmtEnd(dStr) }, as_count: true,
     });
     return d.count || 0;
   };
 
+  // ---------- 阶段一：顺序探测窗口边界 ----------
+  const windows = []; // { start: prevEnd(含, 可为 null), end }
   let prevEnd = null, prevC = 0, end = today;
-  for (let guard = 0; guard < 60; guard++) {
+  for (let guard = 0; guard < 50; guard++) {
     let c = await countEnd(end);
     let win = c - prevC;
-    if (win > 1000) {
-      // 二分收缩：找最大的 end，使 (prevEnd, end] 内记录数 ≤ 1000
+    if (win > WINDOW_TARGET) {
+      // 二分收缩：找最大的 end，使 (prevEnd, end] 内记录数 ≤ WINDOW_TARGET
       let lo = prevEnd || "2000-01-01", hi = end;
       while (true) {
         const span = dayDiff(hi, lo);
         if (span <= 1) break;
         const mid = addDays(lo, Math.floor(span / 2));
         const cm = await countEnd(mid);
-        if (cm - prevC > 1000) hi = mid; else lo = mid;
+        if (cm - prevC > WINDOW_TARGET) hi = mid; else lo = mid;
       }
       end = lo;
       c = await countEnd(end);
       win = c - prevC;
     }
-    // 拉取 (prevEnd, end]
-    const body = { limit: 1000, next_study_date: { end: fmtEnd(end) } };
-    // start 取 prevEnd 当天 23:59:59+08:00（含边界，靠 voc_id 去重兜底），避免窗口间漏记录
-    if (prevEnd) body.next_study_date.start = fmtEnd(prevEnd);
-    await sleep(300);
-    const d = await maimemoQueryStudyRecords(token, body);
-    add(d.records || []);
-    if (onProgress) onProgress(all.length, total);
+    windows.push({ start: prevEnd, end });
     if (c >= total) break;
     if (prevEnd && end === prevEnd) break; // 窗口无法前进，防死循环
     const span = prevEnd ? dayDiff(end, prevEnd) : 0;
     const dens = win / Math.max(span, 1);
-    const step = win <= 0 ? 1825 : Math.max(1, Math.round(700 / Math.max(dens, 1e-9)));
+    // win<=0 说明中间是空段：直接跳到上限，用一次探测覆盖所有剩余（省去逐段空窗口探测）
+    const step = win <= 0 ? dayDiff(HI, end) : Math.max(1, Math.round(WINDOW_TARGET / Math.max(dens, 1e-9)));
     prevEnd = end; prevC = c;
     end = addDays(end, step);
     if (end > HI) end = HI;
   }
+
+  // ---------- 阶段二：并发 2 拉取各窗口 ----------
+  // 全局节流保证请求发出速率 ≤ 1.67 req/s（并发 2 仅用于并行等待响应，不超限流）
+  // 每个窗口独立容错：单窗口失败不拖垮整体，退避后重试一次，仍失败才抛出
+  let idx = 0;
+  const bodyFor = (w) => {
+    const body = { limit: 1000, next_study_date: { end: fmtEnd(w.end) } };
+    // start 取窗口起点当天 23:59:59+08:00（含边界，靠 voc_id 去重兜底），避免窗口间漏记录
+    if (w.start) body.next_study_date.start = fmtEnd(w.start);
+    return body;
+  };
+  const workers = [0, 1].map(async () => {
+    while (idx < windows.length) {
+      const w = windows[idx++];
+      await throttle();
+      try {
+        const d = await maimemoQueryStudyRecords(token, bodyFor(w));
+        add(d.records || []);
+      } catch (e) {
+        // 单窗口失败：退避 2s 后重试一次，仍失败则抛出（由调用方统一显示错误）
+        await sleep(2000);
+        const d = await maimemoQueryStudyRecords(token, bodyFor(w));
+        add(d.records || []);
+      }
+      if (onProgress) onProgress(all.length, total);
+    }
+  });
+  await Promise.all(workers);
   return all;
 }
