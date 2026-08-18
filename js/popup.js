@@ -27,7 +27,7 @@ async function saveSettings(next) {
   return settings;
 }
 
-// ---------- 内容缓存（看板 / 查词 / 故事） ----------
+// ---------- 内容缓存（看板 / 查词 / 创造） ----------
 // 统一存于 chrome.storage.local，带时间戳与 TTL，过期自动失效
 const cachePrefix = "mymaimemo_cache_";
 async function cacheSet(key, value, ttlMs) {
@@ -55,7 +55,7 @@ async function cacheGet(key) {
 const CACHE = {
   BOARD: { key: "board", ttl: 5 * 60 * 1000 },        // 看板 5 分钟
   DICT: { key: "dict", ttl: 24 * 3600 * 1000 },        // 查词 24 小时
-  STORY: { key: "story", ttl: 0 },                      // 故事不过期（按词表指纹判断）
+  STORY: { key: "story", ttl: 0 },                      // 例句不过期（按词表指纹判断）
 };
 function dictCacheKey(word) { return `${CACHE.DICT.key}_${word.toLowerCase()}`; }
 
@@ -161,7 +161,7 @@ function applyUsername() {
   const titles = document.querySelectorAll(".logo-title");
   titles.forEach((el) => { el.textContent = name || "MyMaimemo"; });
   // 同步浏览器标签页标题
-  if (document.title) document.title = `${name || "MyMaimemo"} · 查词 / 看板 / 单词故事`;
+  if (document.title) document.title = `${name || "MyMaimemo"} · 查词 / 看板 / 单词创造`;
 }
 
 // ---------- 看板 ----------
@@ -743,8 +743,8 @@ async function doAiDefinition() {
   }
 }
 
-// ---------- 单词小文章 ----------
-// 打开面板时调用：若已有缓存故事直接显示，不重新请求 LLM
+// ---------- 单词创造 ----------
+// 打开面板时调用：若已有缓存例句直接显示，不重新请求 LLM
 async function showStoryCache() {
   const cached = await cacheGet(CACHE.STORY.key);
   if (cached && cached.pairs && cached.pairs.length) {
@@ -786,14 +786,14 @@ async function doStory() {
     // 背诵目标 = 已背的词（若用了回退，则高亮所有词都做背诵重点；这里高亮已背词）
     const highlight = doneItems.map((i) => i.voc_spelling).filter(Boolean);
 
-    $("storyLoading").textContent = `基于「${sourceLabel}」共 ${words.length} 词，AI 创作中…`;
+    $("storyLoading").textContent = `基于「${sourceLabel}」共 ${words.length} 词，AI 生成例句中…`;
     const text = await aiStory(settings, words, { highlight: highlight.length ? highlight : words });
 
     hide("storyLoading");
     const pairs = parseStoryPairs(text);
-    if (!pairs.length) throw new Error("故事解析为空，请重试");
+    if (!pairs.length) throw new Error("例句解析为空，请重试");
 
-    // 缓存上一次生成的故事（不过期），打开面板时直接显示，无需重新调用 LLM
+    // 缓存上一次生成的例句（不过期），打开面板时直接显示，无需重新调用 LLM
     const meta = `来源：${sourceLabel}（${words.length} 词）`;
     await cacheSet(CACHE.STORY.key, { pairs, highlight: highlight.length ? highlight : words, meta }, CACHE.STORY.ttl);
 
@@ -804,7 +804,7 @@ async function doStory() {
   }
 }
 
-// 渲染故事（含 meta + 逐句英中）
+// 渲染例句（含 meta + 逐句英中）
 function renderStory(pairs, highlight, meta) {
   if (meta) {
     const metaEl = $("storyMeta");
@@ -828,7 +828,7 @@ function renderStory(pairs, highlight, meta) {
   show("storyCopyBtn"); // 有内容才显示复制
 }
 
-// 解析故事输出为 {en, cn} 数组
+// 解析例句输出为 {en, cn} 数组
 // 优先 XML 结构 <line><en>..</en><zh>..</zh></line>，失败则退回逐行交错
 function parseStoryPairs(text) {
   const xmlPairs = parseXmlPairs(text);
@@ -892,7 +892,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadSettings();
   initSettingsUI();
   applyUsername(); // 顶部显示用户名（无则 MyMaimemo）
-  // 打开面板：看板读缓存（无则拉取）、故事读缓存，均不重复调用
+  // 打开面板：看板读缓存（无则拉取）、创造读缓存，均不重复调用
   refreshDashboard(false);
   showStoryCache();
   populateFavPickers(); // 填充云词库下拉框
@@ -928,7 +928,7 @@ function closeSettings() {
   show("topbar");
 }
 
-// ---------- 复制故事全文 ----------
+// ---------- 复制例句全文 ----------
 async function copyStory() {
   const area = $("storyArea");
   if (!area || area.classList.contains("hidden")) return;

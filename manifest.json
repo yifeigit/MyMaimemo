@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "MyMaimemo · 墨墨背单词助手",
   "version": "1.1.0",
-  "description": "查词、今日看板与单词故事一体化面板。绑定墨墨背单词 OpenAPI 与 LLM，查词自动收藏、AI释义、逐句对照单词故事。",
+  "description": "查词、今日看板与单词创造一体化面板。绑定墨墨背单词 OpenAPI 与 LLM，查词自动收藏、AI释义、逐句对照单词例句。",
   "permissions": ["storage", "tabs"],
   "host_permissions": [
     "https://open.maimemo.com/*",
@@ -21,7 +21,7 @@
     }
   ],
   "action": {
-    "default_title": "MyMaimemo · 查词 / 看板 / 单词故事"
+    "default_title": "MyMaimemo · 查词 / 看板 / 单词创造"
   },
   "web_accessible_resources": [
     {
