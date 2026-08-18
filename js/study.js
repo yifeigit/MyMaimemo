@@ -65,19 +65,28 @@ async function ensureStudyData(force) {
   const loadEl = $("studyLoading");
   const started = Date.now();
   try {
-    const recs = await maimemoFetchAllStudyRecords(settings.token, (n, total) => {
-      if (!total) { loadEl.textContent = `正在拉取学习记录… 已加载 ${n} 词`; return; }
-      // 按进度估算剩余时间，让用户知道不是卡死
-      const pct = Math.min(99, Math.round((n / total) * 100));
+    const recs = await maimemoFetchAllStudyRecords(settings.token, (partial, total) => {
+      // 1) 进度文案：百分比 + 剩余秒数估算，让用户知道不是卡死
+      const n = partial.length;
+      const pct = total ? Math.min(99, Math.round((n / total) * 100)) : 0;
       const el = Date.now() - started;
       const per = el / Math.max(n, 1);
-      const left = Math.max(0, Math.round((per * (total - n)) / 1000));
-      loadEl.textContent = `正在拉取学习记录… ${n} / ${total} 词（${pct}%，约剩 ${left} 秒）`;
+      const left = total ? Math.max(0, Math.round((per * (total - n)) / 1000)) : 0;
+      loadEl.textContent = total
+        ? `正在同步学习数据… ${n} / ${total} 词（${pct}%，约剩 ${left} 秒），数据实时更新中`
+        : `正在同步学习数据… 已加载 ${n} 词`;
+      // 2) 边拉边显示：每拉完一个窗口就用当前已有数据渲染一次
+      if (partial.length) {
+        studyRecords = partial;
+        renderStudyAll(partial);
+      }
     });
+    hide("studyLoading");
     if (recs.length) {
       studyRecords = recs;
       await cacheSet(STUDY_CACHE_KEY, recs, STUDY_CACHE_TTL);
     }
+    renderStudyAll(recs.length ? recs : (studyRecords || []));
     return studyRecords || [];
   } finally {
     studyLoading = false;

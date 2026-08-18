@@ -322,8 +322,41 @@ async function maimemoFetchAllStudyRecords(token, onProgress) {
     return d.count || 0;
   };
 
-  // ---------- 阶段一：顺序探测窗口边界 ----------
-  const windows = []; // { start: prevEnd(含, 可为 null), end }
+  // ---------- 流水线：边探测边界边拉取 ----------
+  // 阶段一（顺序）每确定一个窗口就推入共享队列；阶段二（并发 2）实时消费拉取。
+  // onProgress 在每个窗口拉取完成后回调 (已累积记录数组快照, 总数)，供 UI 边拉边显示。
+  const winQueue = [];   // 已确定的窗口 { start: prevEnd(含, 可为 null), end }
+  let phaseDone = false;
+  let idx = 0;
+  const bodyFor = (w) => {
+    const body = { limit: 1000, next_study_date: { end: fmtEnd(w.end) } };
+    // start 取窗口起点当天 23:59:59+08:00（含边界，靠 voc_id 去重兜底），避免窗口间漏记录
+    if (w.start) body.next_study_date.start = fmtEnd(w.start);
+    return body;
+  };
+  const workers = [0, 1].map(async () => {
+    while (true) {
+      const w = winQueue[idx++];
+      if (w) {
+        await throttle();
+        try {
+          const d = await maimemoQueryStudyRecords(token, bodyFor(w));
+          add(d.records || []);
+        } catch (e) {
+          // 单窗口失败：退避 2s 后重试一次，仍失败则抛出（由调用方统一显示错误）
+          await sleep(2000);
+          const d = await maimemoQueryStudyRecords(token, bodyFor(w));
+          add(d.records || []);
+        }
+        if (onProgress) onProgress(all.slice(), total);
+        continue;
+      }
+      if (phaseDone) break;      // 探测结束且队列取空 -> 完成
+      await sleep(50);           // 等待阶段一推入新窗口
+    }
+  });
+
+  // 阶段一：顺序探测窗口边界（累计计数 + 二分），确定一个入队一个
   let prevEnd = null, prevC = 0, end = today;
   for (let guard = 0; guard < 50; guard++) {
     let c = await countEnd(end);
@@ -342,7 +375,7 @@ async function maimemoFetchAllStudyRecords(token, onProgress) {
       c = await countEnd(end);
       win = c - prevC;
     }
-    windows.push({ start: prevEnd, end });
+    winQueue.push({ start: prevEnd, end });
     if (c >= total) break;
     if (prevEnd && end === prevEnd) break; // 窗口无法前进，防死循环
     const span = prevEnd ? dayDiff(end, prevEnd) : 0;
@@ -353,33 +386,7 @@ async function maimemoFetchAllStudyRecords(token, onProgress) {
     end = addDays(end, step);
     if (end > HI) end = HI;
   }
-
-  // ---------- 阶段二：并发 2 拉取各窗口 ----------
-  // 全局节流保证请求发出速率 ≤ 1.67 req/s（并发 2 仅用于并行等待响应，不超限流）
-  // 每个窗口独立容错：单窗口失败不拖垮整体，退避后重试一次，仍失败才抛出
-  let idx = 0;
-  const bodyFor = (w) => {
-    const body = { limit: 1000, next_study_date: { end: fmtEnd(w.end) } };
-    // start 取窗口起点当天 23:59:59+08:00（含边界，靠 voc_id 去重兜底），避免窗口间漏记录
-    if (w.start) body.next_study_date.start = fmtEnd(w.start);
-    return body;
-  };
-  const workers = [0, 1].map(async () => {
-    while (idx < windows.length) {
-      const w = windows[idx++];
-      await throttle();
-      try {
-        const d = await maimemoQueryStudyRecords(token, bodyFor(w));
-        add(d.records || []);
-      } catch (e) {
-        // 单窗口失败：退避 2s 后重试一次，仍失败则抛出（由调用方统一显示错误）
-        await sleep(2000);
-        const d = await maimemoQueryStudyRecords(token, bodyFor(w));
-        add(d.records || []);
-      }
-      if (onProgress) onProgress(all.length, total);
-    }
-  });
+  phaseDone = true;
   await Promise.all(workers);
   return all;
 }
