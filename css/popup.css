@@ -404,11 +404,11 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
 }
 .study-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .study-table th {
-  position: sticky; top: 0; background: var(--dark); color: #fff;
+  position: sticky; top: 0; background: var(--primary); color: #fff;
   font-size: 11.5px; text-align: left; padding: 8px 10px;
   cursor: pointer; white-space: nowrap; user-select: none;
 }
-.study-table th:hover { background: var(--dark-2); }
+.study-table th:hover { background: var(--primary-hover); }
 .study-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .study-table tr:nth-child(even) { background: #fafbfa; }
 .col-word { font-weight: 700; color: var(--text); }

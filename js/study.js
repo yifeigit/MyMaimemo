@@ -1,4 +1,4 @@
-// study.js — 学习数据页（概览图表 / 易忘词 / 熟词 / 全量记录）
+// study.js — 学习数据页（概览图表 / 易忘词 / 全量记录）
 // 依赖 popup.js 提供的全局：$、hide、show、setText、escHtml、cacheGet、cacheSet、settings、STUDY_CACHE_KEY
 "use strict";
 
@@ -8,7 +8,7 @@ let studyRecords = null;   // 全量学习记录（分页拉取后缓存）
 let studyLoading = false;  // 防止并发重复拉取
 
 const studyState = {
-  tab: "overview",          // overview | sticky | familiar | all
+  tab: "overview",          // overview | sticky | all
   page: 1,
   perPage: 50,
   sortKey: "voc_spelling",
@@ -87,8 +87,7 @@ async function ensureStudyData(force) {
 function renderStudyAll(recs) {
   const tab = studyState.tab;
   if (tab === "overview") renderOverview(recs);
-  else if (tab === "sticky") renderWordTagList(recs, "STICKING", "stickyList", "stickyDesc", "易忘词");
-  else if (tab === "familiar") renderWordTagList(recs, "WELL_FAMILIAR", "familiarList", "familiarDesc", "熟词");
+  else if (tab === "sticky") renderStickyList(recs);
   else renderTable(recs);
 }
 
@@ -97,7 +96,7 @@ function switchStudyTab(tab) {
   document.querySelectorAll(".study-tab").forEach((b) => {
     b.classList.toggle("active", b.dataset.tab === tab);
   });
-  ["overview", "sticky", "familiar", "all"].forEach((t) => {
+  ["overview", "sticky", "all"].forEach((t) => {
     const el = $("studyTab-" + t);
     if (el) el.classList.toggle("hidden", t !== tab);
   });
@@ -108,12 +107,7 @@ function switchStudyTab(tab) {
 function renderOverview(recs) {
   const n = recs.length;
   const sticky = recs.filter((r) => (r.tags || []).includes("STICKING")).length;
-  // 实测：墨墨的「熟词」体现在 last_response=WELL_FAMILIAR 状态，而非 tags 标签
-  const familiar = recs.filter((r) =>
-    (r.tags || []).includes("WELL_FAMILIAR") || r.last_response === "WELL_FAMILIAR"
-  ).length;
   const totalStudy = recs.reduce((s, r) => s + (r.study_count || 0), 0);
-  const avg = n ? (totalStudy / n).toFixed(1) : "0";
   // 7 日到期（含今天，next_study_date ≤ 今天+7 且 ≥ 今天）
   const nowKey = bjDayNum(new Date());
   const due7 = recs.filter((r) => {
@@ -135,7 +129,6 @@ function renderOverview(recs) {
   $("studyKpis").innerHTML =
     `<div class="skpi skpi-main"><div class="skpi-label">计划总词数</div><div class="skpi-value">${n}</div></div>` +
     `<div class="skpi skpi-warn"><div class="skpi-label">易忘词</div><div class="skpi-value">${sticky}</div></div>` +
-    `<div class="skpi skpi-ok"><div class="skpi-label">熟词</div><div class="skpi-value">${familiar}</div></div>` +
     `<div class="skpi skpi-hot"><div class="skpi-label">7 日到期</div><div class="skpi-value">${due7}</div></div>` +
     `<div class="skpi"><div class="skpi-label">30 日到期</div><div class="skpi-value">${due30}</div></div>` +
     `<div class="skpi"><div class="skpi-label">累计学习次数</div><div class="skpi-value">${totalStudy}</div></div>`;
@@ -201,29 +194,34 @@ function drawTrendChart(recs) {
   drawSvgBars("chartTrend", months.map((m) => m.label), counts, { color: "#7da994", labelEvery: 2, height: 200 });
 }
 
-// ---------- 易忘词 / 熟词清单 ----------
-// kind: "STICKING"=易忘词(tags 标签)；"WELL_FAMILIAR"=熟词(tags 或 last_response 状态)
-function renderWordTagList(recs, kind, listId, descId, title) {
-  const list = recs.filter((r) =>
-    kind === "STICKING"
-      ? (r.tags || []).includes("STICKING")
-      : (r.tags || []).includes("WELL_FAMILIAR") || r.last_response === "WELL_FAMILIAR"
-  );
-  setText(descId, `${title}共 ${list.length} 个，按最近学习时间倒序展示前 200 个`);
-  const box = $(listId);
+// ---------- 易忘词清单 ----------
+// 范围：tags=STICKING（墨墨标记的易忘词）；按难度排序展示前 200 个
+// 难度分 = 学习次数 × 10 + 最近反应权重（忘记>模糊>认识>熟知），学得多还记不住 = 更难
+const RESP_DIFF_W = { FORGET: 4, VAGUE: 3, FAMILIAR: 1, WELL_FAMILIAR: 0 };
+const RESP_CN = { WELL_FAMILIAR: "熟知", FAMILIAR: "认识", VAGUE: "模糊", FORGET: "忘记" };
+function diffScore(r) {
+  return (r.study_count || 0) * 10 + (RESP_DIFF_W[r.last_response] ?? 1);
+}
+function renderStickyList(recs) {
+  const list = recs.filter((r) => (r.tags || []).includes("STICKING"));
+  setText("stickyDesc", `易忘词共 ${list.length} 个，按难度排序（学习次数×10 + 最近反应权重），展示前 200 个`);
+  const box = $("stickyList");
   box.innerHTML = "";
   if (!list.length) {
-    box.innerHTML = `<div class="study-empty">暂无「${title}」单词</div>`;
+    box.innerHTML = `<div class="study-empty">暂无「易忘词」</div>`;
     return;
   }
-  list.sort((a, b) => (b.last_study_date || "").localeCompare(a.last_study_date || ""));
+  list.sort((a, b) => {
+    const da = diffScore(b), db = diffScore(a);
+    if (da !== db) return da - db;                                  // 难度分降序
+    return (b.last_study_date || "").localeCompare(a.last_study_date || ""); // 同分按最近学习倒序
+  });
   list.slice(0, 200).forEach((r) => {
     const chip = document.createElement("div");
     chip.className = "wchip";
     chip.innerHTML =
       `<span class="wchip-word">${escHtml(r.voc_spelling || "—")}</span>` +
-      `<span class="wchip-meta">学 ${r.study_count || 0} 次` +
-      (r.last_study_date ? ` · ${bjKey(new Date(r.last_study_date))}` : "") + `</span>`;
+      `<span class="wchip-meta">学 ${r.study_count || 0} 次 · ${RESP_CN[r.last_response] || "未测"}</span>`;
     box.appendChild(chip);
   });
   if (list.length > 200) {
